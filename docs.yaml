@@ -4,12 +4,12 @@ info:
   description: REST API untuk manajemen data employee (Create, Read, Update, Delete).
   version: "1.0.0"
   contact:
-    name: Backend Team
-    email: backend@example.com
+    name: Anas Mufti
+    email: anas.muhammadakbar@gmail.com
 
 servers:
-  - url: http://localhost:8080
-    description: Local Development
+  - url: https://employee-management-app-a71ae14c9e4a.herokuapp.com/
+    description: Production
 
 paths:
   /employee:
@@ -118,10 +118,14 @@ components:
         email:
           type: string
           example: andi@example.com
+        phone:
+          type: string
+          example: 081010101010
       required:
         - id
         - name
         - email
+        - phone
 
     EmployeeInput:
       type: object
@@ -132,6 +136,10 @@ components:
         email:
           type: string
           example: budi@example.com
+        phone:
+          type: string
+          example: 087777777777
       required:
         - name
         - email
+        - phone
