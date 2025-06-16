@@ -1,8 +1,8 @@
 package main
 
 import (
-	"app/config"
-	"app/handler"
+	"employee-management-app/config"
+	"employee-management-app/handler"
 	"log"
 	"net/http"
 

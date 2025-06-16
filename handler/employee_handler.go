@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"app/model"
 	"database/sql"
+	"employee-management-app/model"
 	"encoding/json"
 	"fmt"
 	"net/http"
