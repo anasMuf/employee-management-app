@@ -2,6 +2,64 @@
 
 REST API untuk manajemen data employee yang mendukung operasi Create, Read, Update, dan Delete (CRUD).
 
+## System Requirements
+
+- **Go**: Version 1.19 atau lebih baru
+- **MySQL**: Version 5.7 atau lebih baru
+- **Git**: Untuk clone repository
+
+## Instalasi
+
+### 1. Clone Repository
+```bash
+git clone <repository-url>
+cd employee-management-app
+```
+
+### 2. Install Dependencies
+```bash
+go mod download
+```
+
+### 3. Setup Database
+Pastikan MySQL server sudah berjalan, kemudian:
+
+1. Buat database baru:
+```sql
+CREATE DATABASE employee_db;
+```
+
+2. Import struktur database dari file DDL:
+```bash
+mysql -u username -p employee_db < database.sql
+```
+
+Atau jika menggunakan MySQL Workbench, import file `database.sql` ke database `employee_db`.
+
+### 4. Konfigurasi Environment
+Buat file `.env` di root directory dan sesuaikan dengan konfigurasi database Anda:
+```env
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=your_username
+DB_PASSWORD=your_password
+DB_NAME=employee_db
+PORT=8080
+```
+
+### 5. Jalankan Aplikasi
+```bash
+go run main.go
+```
+
+Aplikasi akan berjalan di `http://localhost:8080`
+
+### 6. Testing
+Untuk memastikan API berfungsi dengan baik:
+```bash
+curl http://localhost:8080/employee
+```
+
 ## Informasi API
 
 - **Versi**: 1.0.0
