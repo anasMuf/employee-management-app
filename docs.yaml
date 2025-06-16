@@ -1,0 +1,137 @@
+openapi: 3.1.0
+info:
+  title: Employee API
+  description: REST API untuk manajemen data employee (Create, Read, Update, Delete).
+  version: "1.0.0"
+  contact:
+    name: Backend Team
+    email: backend@example.com
+
+servers:
+  - url: http://localhost:8080
+    description: Local Development
+
+paths:
+  /employee:
+    get:
+      summary: Ambil seluruh data employee
+      description: Mengembalikan daftar seluruh employee dalam database.
+      responses:
+        '200':
+          description: Daftar employee berhasil diambil.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Employee'
+    post:
+      summary: Tambah employee baru
+      description: Membuat employee baru ke database.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeInput'
+      responses:
+        '201':
+          description: Employee berhasil dibuat.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+        '400':
+          description: Data input tidak valid.
+
+  /employee/{id}:
+    get:
+      summary: Ambil data employee berdasarkan ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID employee
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Employee ditemukan.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+        '404':
+          description: Employee tidak ditemukan.
+    put:
+      summary: Update data employee berdasarkan ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID employee
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeInput'
+      responses:
+        '200':
+          description: Employee berhasil diupdate.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+        '400':
+          description: Data input tidak valid.
+        '404':
+          description: Employee tidak ditemukan.
+    delete:
+      summary: Hapus data employee berdasarkan ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID employee
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Employee berhasil dihapus (No Content).
+        '404':
+          description: Employee tidak ditemukan.
+
+components:
+  schemas:
+    Employee:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Andi
+        email:
+          type: string
+          example: andi@example.com
+      required:
+        - id
+        - name
+        - email
+
+    EmployeeInput:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Budi
+        email:
+          type: string
+          example: budi@example.com
+      required:
+        - name
+        - email
