@@ -3,9 +3,9 @@ package main
 import (
 	"employee-management-app/config"
 	"employee-management-app/handler"
+	"employee-management-app/repositories"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -16,7 +16,8 @@ func main() {
 	db := config.DBInit()
 	defer db.Close()
 
-	empHandler := handler.EmployeeHandler{DB: db}
+	empRepo := repositories.NewEmployeeRepository(db)
+	empHandler := handler.NewEmployeeHandler(empRepo)
 
 	router := httprouter.New()
 	router.GET("/employees", empHandler.GetAllEmployees)
@@ -25,14 +26,14 @@ func main() {
 	router.PUT("/employees/:id", empHandler.UpdateEmployee)
 	router.DELETE("/employees/:id", empHandler.DeleteEmployee)
 
-	// log.Println("Server running at http://localhost:8080")
-	// log.Fatal(http.ListenAndServe("", router))
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-	err := http.ListenAndServe(":"+port, router)
-	if err != nil {
-		log.Fatal("server gagal dijalankan", err)
-	}
+	log.Println("Server running at http://localhost:8080")
+	log.Fatal(http.ListenAndServe(":8080", router))
+	// port := os.Getenv("PORT")
+	// if port == "" {
+	// 	port = "8080"
+	// }
+	// err := http.ListenAndServe(":"+port, router)
+	// if err != nil {
+	// 	log.Fatal("server gagal dijalankan", err)
+	// }
 }

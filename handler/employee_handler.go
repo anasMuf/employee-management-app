@@ -1,45 +1,41 @@
 package handler
 
 import (
-	"database/sql"
 	"employee-management-app/model"
+	"employee-management-app/repositories"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/julienschmidt/httprouter"
 )
 
 type EmployeeHandler struct {
-	DB *sql.DB
+	Repository repositories.EmployeeRepository
+}
+
+func NewEmployeeHandler(r repositories.EmployeeRepository) *EmployeeHandler {
+	return &EmployeeHandler{Repository: r}
 }
 
 func (h *EmployeeHandler) GetAllEmployees(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	w.Header().Set("Content-Type", "application/json")
 
 	//get all data
-	rows, err := h.DB.Query("SELECT * FROM employees")
+	employees, err := h.Repository.GetAll()
 	if err != nil {
-		http.Error(w, "internal server error, failed get data", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	//collect data to struct
-	var employees []model.Employee
-	for rows.Next() {
-		var e model.Employee
-		if err := rows.Scan(&e.ID, &e.Name, &e.Email, &e.Phone, &e.CreatedAt, &e.UpdatedAt); err != nil {
-			http.Error(w, "internal server error, failed collect data", http.StatusInternalServerError)
-			return
+		response := map[string]any{
+			"message": err.Error(),
+			"data":    employees,
 		}
-		employees = append(employees, e)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
+		return
 	}
 
 	response := map[string]any{
-		"message": "employee found",
+		"message": "employees found",
 		"data":    employees,
 	}
 	json.NewEncoder(w).Encode(response)
@@ -50,27 +46,23 @@ func (h *EmployeeHandler) GetEmployeeByID(w http.ResponseWriter, r *http.Request
 	idStr := ps.ByName("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "Invalid employee ID", http.StatusBadRequest)
+		response := map[string]any{
+			"message": "Invalid employee ID",
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
-	var employee model.Employee
+
 	//get data by id
-	err = h.DB.QueryRow(`
-	SELECT * 
-	FROM employees 
-	WHERE id=?`, id).Scan(
-		&employee.ID,
-		&employee.Name,
-		&employee.Email,
-		&employee.Phone,
-		&employee.CreatedAt,
-		&employee.UpdatedAt,
-	)
-	if err == sql.ErrNoRows {
-		http.Error(w, "Employee not found", http.StatusNotFound)
-		return
-	} else if err != nil {
-		http.Error(w, fmt.Sprintf("internal server error, failed get data: %s", err.Error()), http.StatusInternalServerError)
+	employee, err := h.Repository.GetByID(id)
+	if err != nil {
+		response := map[string]any{
+			"message": err.Error(),
+			"data":    employee,
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 	response := map[string]any{
@@ -82,30 +74,33 @@ func (h *EmployeeHandler) GetEmployeeByID(w http.ResponseWriter, r *http.Request
 
 func (h *EmployeeHandler) CreateEmployee(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	w.Header().Set("Content-Type", "application/json")
-	var employee model.Employee
-	if err := json.NewDecoder(r.Body).Decode(&employee); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+	var employeeReq model.Employee
+	if err := json.NewDecoder(r.Body).Decode(&employeeReq); err != nil {
+		response := map[string]any{
+			"message": "Invalid JSON",
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
-	now := time.Now().Format("2006-01-02 15:04:05") //get current datetime
 
 	//input validation
 	notValidated := []any{}
-	if employee.Name == "" {
+	if employeeReq.Name == "" {
 		data := map[string]string{
 			"field":   "Name",
 			"message": "must be required",
 		}
 		notValidated = append(notValidated, data)
 	}
-	if employee.Email == "" {
+	if employeeReq.Email == "" {
 		data := map[string]string{
 			"field":   "Email",
 			"message": "must be required",
 		}
 		notValidated = append(notValidated, data)
 	}
-	if employee.Phone == "" {
+	if employeeReq.Phone == "" {
 		data := map[string]string{
 			"field":   "Phone",
 			"message": "must be required",
@@ -123,24 +118,15 @@ func (h *EmployeeHandler) CreateEmployee(w http.ResponseWriter, r *http.Request,
 	}
 
 	//store data
-	result, err := h.DB.Exec(`
-	INSERT INTO employees 
-	(name, email, phone, created_at, updated_at) VALUES 
-	(?, ?, ?, ?, ?)`,
-		employee.Name,
-		employee.Email,
-		employee.Phone,
-		now,
-		now,
-	)
+	employee, err := h.Repository.Create(employeeReq)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		response := map[string]any{
+			"message": err.Error(),
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
-	id, _ := result.LastInsertId()
-	employee.ID = int(id)
-	employee.CreatedAt = now
-	employee.UpdatedAt = now
 	response := map[string]any{
 		"message": "employee stored successfully",
 		"data":    employee,
@@ -154,34 +140,42 @@ func (h *EmployeeHandler) UpdateEmployee(w http.ResponseWriter, r *http.Request,
 	idStr := ps.ByName("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "Invalid employee ID", http.StatusBadRequest)
+		response := map[string]any{
+			"message": "Invalid employee ID",
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
-	now := time.Now().Format("2006-01-02 15:04:05") //get current datetime
 
-	var employee model.Employee
-	if err := json.NewDecoder(r.Body).Decode(&employee); err != nil {
+	var employeeReq model.Employee
+	if err := json.NewDecoder(r.Body).Decode(&employeeReq); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		response := map[string]any{
+			"message": "Invalid JSON",
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
 	//input validation
 	notValidated := []any{}
-	if employee.Name == "" {
+	if employeeReq.Name == "" {
 		data := map[string]string{
 			"field":   "Name",
 			"message": "must be required",
 		}
 		notValidated = append(notValidated, data)
 	}
-	if employee.Email == "" {
+	if employeeReq.Email == "" {
 		data := map[string]string{
 			"field":   "Email",
 			"message": "must be required",
 		}
 		notValidated = append(notValidated, data)
 	}
-	if employee.Phone == "" {
+	if employeeReq.Phone == "" {
 		data := map[string]string{
 			"field":   "Phone",
 			"message": "must be required",
@@ -199,25 +193,15 @@ func (h *EmployeeHandler) UpdateEmployee(w http.ResponseWriter, r *http.Request,
 	}
 
 	//update data by id
-	_, err = h.DB.Exec(`
-	UPDATE employees 
-	SET name=?, 
-		email=?, 
-		phone=?, 
-		updated_at=? 
-	WHERE id=?`,
-		employee.Name,
-		employee.Email,
-		employee.Phone,
-		now,
-		id,
-	)
+	employee, err := h.Repository.Update(id, employeeReq)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		response := map[string]any{
+			"message": err.Error(),
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
-	employee.ID = id
-	employee.UpdatedAt = now
 	response := map[string]any{
 		"message": "employee updated successfully",
 		"data":    employee,
@@ -230,35 +214,25 @@ func (h *EmployeeHandler) DeleteEmployee(w http.ResponseWriter, r *http.Request,
 	idStr := ps.ByName("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "Invalid employee ID", http.StatusBadRequest)
+		response := map[string]any{
+			"message": "Invalid employee ID",
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
-
-	var employee model.Employee
 
 	//check data exist
-	err = h.DB.QueryRow(`
-	SELECT id,name 
-	FROM employees 
-	WHERE id=?`, id).Scan(
-		&employee.ID,
-		&employee.Name,
-	)
-	if err == sql.ErrNoRows {
-		http.Error(w, "Employee not found", http.StatusNotFound)
-		return
-	} else if err != nil {
-		http.Error(w, fmt.Sprintf("internal server error, failed get data: %s", err.Error()), http.StatusInternalServerError)
-		return
-	}
-
-	//delete data by id
-	_, err = h.DB.Exec("DELETE FROM employees WHERE id=?", id)
+	employee, err := h.Repository.Delete(id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		response := map[string]any{
+			"message": err.Error(),
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(response)
 		return
 	}
-	response := map[string]string{
+	response := map[string]any{
 		"message": fmt.Sprintf("employee %s deleted successfully", employee.Name),
 	}
 	w.WriteHeader(http.StatusOK)
